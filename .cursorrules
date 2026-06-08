@@ -1,0 +1,25 @@
+# MedAgent — Cursor rules. These constraints are LOCKED. Do not deviate.
+
+## Backend
+- LLM calls go through the Groq Python client ONLY. NEVER use OpenAI or Anthropic clients/SDKs at runtime.
+- Models: Llama 3.3 70B for orchestration, synthesis, and the LLM judge. Llama 3.1 8B for cheap tasks (query rewriting, classification). Confirm exact Groq model IDs against Groq's docs.
+- Embeddings: sentence-transformers all-MiniLM-L6-v2, run LOCALLY. NEVER OpenAI embeddings.
+- Vector DB: ChromaDB persistent client at ./chroma_db/. NEVER Pinecone or hosted vector DBs.
+- Keyword search: rank-bm25. Hybrid retrieval = dense + BM25 fused via Reciprocal Rank Fusion.
+- Orchestration: LangGraph. Verify against the current official quickstart; the API changed in 2024-2025.
+- API: FastAPI with SSE streaming. Same app serves the frontend as static files (StaticFiles mount).
+- PubMed: NCBI Entrez via Biopython. Drug data: local SQLite.
+- Secrets: load from .env via python-dotenv. NEVER hardcode keys.
+
+## Frontend
+- Vanilla HTML5 + JavaScript + Alpine.js (CDN) + Tailwind CSS (CDN).
+- NO React, NO Vue, NO npm, NO build step. CDN script tags only.
+- Streaming via fetch + ReadableStream. Dark mode default. Served by FastAPI, not a separate server.
+
+## Architecture
+src/data, src/retrieval, src/agents, src/orchestrator, src/guards, src/generation, src/api, src/cli.py, frontend/static, tests/
+
+## Scope — do NOT expand
+- 2 agents only: PubMed RAG + Drug Interaction SQL. NO web search agent.
+- 3 guard layers: heuristic retry, token overlap, LLM-as-judge. NO numeric guard.
+- Deploy target: HuggingFace Spaces, Docker SDK, port 7860, host 0.0.0.0.

@@ -1,2 +1,3 @@
-# medagent
-Multi-agent biomedical research assistant
+# MedAgent 🧬
+
+Computational biology researchers lose hours bouncing between separate databases — PubMed for literature, drug databases for interactions — just to answer one question. MedAgent answers those questions in one place from plain-English queries, pulling across both sources at once. Every claim is traceable to the exact paper or database record it came from, so researchers can trust it instead of second-guessing it.
