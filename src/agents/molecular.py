@@ -5,7 +5,7 @@ import os
 from dotenv import load_dotenv
 from groq import Groq
 from rdkit import Chem
-from rdkit.Chem import Crippen, Descriptors, Lipinski
+from rdkit.Chem import AllChem, Crippen, Descriptors, Lipinski
 
 from src.agents.base import AgentResponse
 
@@ -55,6 +55,21 @@ def compute_properties(smiles: str) -> dict | None:
     }
 
 
+def _mol_block_3d(smiles: str) -> str | None:
+    """Generate 3D atom coordinates and return them as a MOL block (text the viewer can read)."""
+    mol = Chem.MolFromSmiles(smiles)
+    if mol is None:
+        return None
+    mol = Chem.AddHs(mol)                          # add hydrogens for a realistic 3D shape
+    if AllChem.EmbedMolecule(mol, randomSeed=42) != 0:
+        return None                                # embedding failed
+    try:
+        AllChem.MMFFOptimizeMolecule(mol)          # relax the geometry
+    except Exception:
+        pass                                       # optimization is best-effort
+    return Chem.MolToMolBlock(mol)
+
+
 def _extract_molecule(query: str) -> str | None:
     """Cheap LLM call to pull the molecule name or SMILES out of the question."""
     prompt = (
@@ -83,45 +98,55 @@ def _resolve_to_smiles(ref: str):
 
 
 def run(query: str) -> AgentResponse:
-    """Agent entry point: question -> computed properties + natural-language answer."""
+    """Agent entry point: question -> RDKit-computed properties + 3D coords + grounded summary."""
     ref = _extract_molecule(query)
     if ref is None:
         return AgentResponse("molecular", "No molecule identified in the question.", ok=False)
 
     resolved = _resolve_to_smiles(ref)
     if resolved is None:
-        return AgentResponse("molecular", f"'{ref}' isn't in my known set — provide its SMILES.", ok=False)
+        return AgentResponse("molecular", f"'{ref}' isn't in my known set; provide its SMILES.", ok=False)
 
     name, smiles = resolved
     props = compute_properties(smiles)
     if props is None:
         return AgentResponse("molecular", f"Could not parse the structure for '{name}'.", ok=False)
 
+    molblock = _mol_block_3d(smiles)               # 3D coordinates for the viewer (may be None)
+
     present = _client.chat.completions.create(
         model=PRESENT_MODEL,
         messages=[{
             "role": "user",
             "content": (
-                "You are a cheminformatics assistant. Report these RDKit-computed "
-                "properties clearly for a researcher: give the actual values for "
-                "molecular weight, logP, H-bond donors, H-bond acceptors, TPSA, and "
-                "rotatable bonds, then state the Lipinski Rule of Five drug-likeness "
-                "verdict and briefly why. Use ONLY these numbers; add no outside facts.\n\n"
-                f"Molecule: {name}\nProperties: {json.dumps(props)}"
+                "You are a cheminformatics assistant. Using ONLY the RDKit-computed "
+                "values provided below, write a short factual summary of this ONE "
+                "molecule for a researcher: state molecular weight, logP, H-bond "
+                "donors, H-bond acceptors, TPSA, and rotatable bonds, then give the "
+                "Lipinski Rule of Five drug-likeness verdict and briefly why.\n\n"
+                "STRICT RULES:\n"
+                "- Use ONLY the numbers below. Never invent, recall, or adjust a value.\n"
+                "- You have NO literature access. Never cite, name, list, or invent "
+                "papers, authors, years, journals, or references. Literature is a "
+                "different agent's job.\n"
+                "- Do not compare to other molecules; describe only this one.\n"
+                "- Start directly with the summary. No preamble, no restating the name "
+                "as a heading, no quotation marks around the molecule name.\n\n"
+                f"Molecule: {name}\n"
+                f"Properties: {json.dumps(props)}"
             ),
         }],
         temperature=0.2,
     )
-    return AgentResponse("molecular", present.choices[0].message.content, ok=True,
-                         sources=[{"molecule": name, "properties": props}])
+    text = present.choices[0].message.content.strip().lstrip("'\" ").strip()
+    return AgentResponse(
+        "molecular", text, ok=True,
+        sources=[{"molecule": name, "properties": props, "molblock": molblock}],
+    )
 
 
 if __name__ == "__main__":
-    for q in [
-        "What are the molecular properties of aspirin?",
-        "Is ibuprofen drug-like?",
-        "Tell me about the molecule CC(=O)Nc1ccc(O)cc1",
-        "What's the capital of France?",
-    ]:
-        print(f"\nQ: {q}")
-        print(run(q).text)
+    r = run("Is aspirin drug-like?")
+    print(r.text)
+    mb = r.sources[0].get("molblock") if r.sources else None
+    print("\n3D MOL block generated:", "yes" if mb else "no", f"({len(mb)} chars)" if mb else "")
