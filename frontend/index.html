@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MedAgent</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+<script src="https://3dmol.org/build/3Dmol-min.js"></script>
+<style>
+  :root{
+    --paper:#FBFBFC; --surface:#FFFFFF; --ink:#18181B; --muted:#71717A; --faint:#A1A1AA;
+    --line:#EAEAEE; --line-strong:#DCDCE2;
+    --amber:#D97706; --coral:#E11D6B; --violet:#6D45E8;
+    --amber-bg:#FEF6E9; --coral-bg:#FDECF2; --violet-bg:#F0EBFD;
+    --mono:'IBM Plex Mono',ui-monospace,monospace; --sans:'IBM Plex Sans',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;margin:0;}
+  body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.5;
+    -webkit-font-smoothing:antialiased;overflow:hidden;}
+  ::selection{background:#FDE9C9;}
+  ::-webkit-scrollbar{width:10px;}
+  ::-webkit-scrollbar-thumb{background:#E4E4E9;border-radius:6px;border:2px solid var(--paper);}
+  button{font-family:inherit;}
+  :focus-visible{outline:2px solid var(--violet);outline-offset:2px;border-radius:4px;}
+  .grid-bg{
+    background-image:
+      radial-gradient(70% 60% at 50% 45%, transparent 50%, rgba(24,24,27,0.022) 100%),
+      linear-gradient(rgba(24,24,27,0.026) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(24,24,27,0.026) 1px, transparent 1px);
+    background-size:100% 100%, 32px 32px, 32px 32px;
+  }
+  .btn{font-family:inherit;font-size:clamp(15px,1.05vw,18px);font-weight:500;border-radius:12px;cursor:pointer;
+    padding:clamp(12px,0.95vw,16px) clamp(24px,2vw,40px);border:1px solid transparent;white-space:nowrap;transition:opacity .15s,border-color .15s,transform .15s,box-shadow .2s;}
+  .btn:active{transform:scale(.98);}
+  .btn-primary{background:var(--ink);color:#fff;box-shadow:0 4px 14px rgba(24,24,27,0.18);}
+  .btn-primary:hover{opacity:.9;box-shadow:0 6px 18px rgba(24,24,27,0.26);}
+  .btn-ghost{background:transparent;color:var(--ink);border-color:var(--line-strong);} .btn-ghost:hover{border-color:var(--ink);}
+  #navCta{transition:opacity .3s ease,transform .3s ease,box-shadow .2s;}
+  #navCta.cta-hidden{opacity:0;transform:translateY(-6px);pointer-events:none;}
+  .brand{display:flex;align-items:center;gap:clamp(10px,0.9vw,16px);}
+  .mark{position:relative;--d:8px;width:calc(var(--d)*2.5);height:calc(var(--d)*2.12);}
+  .mark i{position:absolute;width:var(--d);height:var(--d);border-radius:50%;}
+  .mark i:nth-child(1){top:0;left:calc(var(--d)*0.75);background:var(--amber);}
+  .mark i:nth-child(2){bottom:0;left:0;background:var(--coral);}
+  .mark i:nth-child(3){bottom:0;right:0;background:var(--violet);}
+  .wordmark{font-weight:600;font-size:21px;letter-spacing:-0.3px;}
+  /* landing top bar: larger + viewport-scaled */
+  .h-nav .wordmark{font-size:clamp(22px,1.85vw,32px);letter-spacing:-0.5px;}
+  .h-nav .mark{--d:clamp(9px,0.82vw,13px);}
+
+  /* ---------------- LANDING (horizontal) ---------------- */
+  #landing{position:relative;height:100%;overflow:hidden;display:flex;flex-direction:column;transition:opacity .35s ease;}
+  .h-nav{position:relative;z-index:10;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;
+    padding:clamp(16px,1.5vw,26px) clamp(24px,4vw,56px);background:var(--paper);border-bottom:1px solid var(--line);}
+  .track{flex:1;min-height:0;display:flex;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;}
+  .track::-webkit-scrollbar{display:none;height:0;}
+  .panel{flex:0 0 100%;height:100%;display:flex;align-items:center;justify-content:center;
+    padding:40px 7vw 84px;position:relative;}
+  .panel-inner{max-width:1280px;width:100%;}
+  .reveal{opacity:0;transform:translateX(46px);transition:opacity .65s ease,transform .65s ease;}
+  .panel.in .reveal{opacity:1;transform:none;}
+  .reveal.d1{transition-delay:.07s;} .reveal.d2{transition-delay:.14s;} .reveal.d3{transition-delay:.21s;}
+
+  .h-hero{display:grid;grid-template-columns:1.05fr .95fr;gap:54px;align-items:center;}
+  .l-eyebrow{display:inline-flex;align-items:center;gap:9px;font-family:var(--mono);font-size:12px;
+    letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:22px;}
+  .l-eyebrow .pdot{width:7px;height:7px;border-radius:50%;background:var(--coral);animation:pulse2 1.8s ease-in-out infinite;}
+  @keyframes pulse2{0%,100%{opacity:.35;}50%{opacity:1;}}
+  .h-hero h1{font-size:clamp(42px,4.6vw,72px);line-height:1.04;letter-spacing:-2px;font-weight:600;margin:0 0 22px;}
+  .h-hero .lead{font-size:clamp(16px,1.25vw,20px);line-height:1.6;color:var(--muted);margin:0 0 30px;max-width:560px;}
+  .l-cta .btn{font-size:clamp(17px,1.35vw,22px);padding:clamp(16px,1.25vw,22px) clamp(34px,2.8vw,52px);border-radius:14px;}
+  .l-cta-row{display:flex;gap:12px;flex-wrap:wrap;}
+  .mol-card{background:var(--surface);border:1px solid var(--line);border-radius:20px;
+    box-shadow:0 14px 50px rgba(24,24,27,0.07);overflow:hidden;position:relative;height:460px;}
+  .mol-card-head,.mol-card-cap{position:absolute;left:0;right:0;z-index:2;display:flex;
+    font-family:var(--mono);font-size:11px;letter-spacing:.5px;color:var(--faint);}
+  .mol-card-head{top:0;justify-content:space-between;padding:14px 16px;text-transform:uppercase;}
+  .mol-card-cap{bottom:0;justify-content:center;padding:11px;}
+  #heroViewer{position:absolute;inset:0;}
+  .hero-mol-fallback{display:flex;align-items:center;justify-content:center;height:100%;}
+  .hero-mol-fallback .bm{position:relative;width:62px;height:56px;opacity:.5;}
+  .hero-mol-fallback .bm i{position:absolute;width:26px;height:26px;border-radius:50%;}
+  .hero-mol-fallback .bm i:nth-child(1){top:0;left:18px;background:var(--amber);}
+  .hero-mol-fallback .bm i:nth-child(2){bottom:0;left:0;background:var(--coral);}
+  .hero-mol-fallback .bm i:nth-child(3){bottom:0;right:0;background:var(--violet);}
+
+  .l-kicker{font-family:var(--mono);font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--faint);margin-bottom:16px;}
+  .l-h2{font-size:clamp(30px,3.3vw,48px);letter-spacing:-1.2px;font-weight:600;margin:0 0 18px;}
+  .l-lead2{font-size:clamp(16px,1.2vw,19px);color:var(--muted);line-height:1.65;max-width:720px;margin:0;}
+  .l-stats{display:flex;gap:56px;flex-wrap:wrap;margin-top:42px;}
+  .l-stat .num{font-size:clamp(38px,3.6vw,56px);font-weight:600;letter-spacing:-1.4px;display:flex;align-items:center;gap:10px;}
+  .l-stat .num .d{width:10px;height:10px;border-radius:50%;}
+  .l-stat .lab{font-family:var(--mono);font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-top:6px;}
+
+  .l-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-top:48px;}
+  .l-card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:34px 30px;position:relative;overflow:hidden;transition:border-color .2s,transform .2s,box-shadow .2s;}
+  .l-card:hover{border-color:var(--line-strong);transform:translateY(-3px);box-shadow:0 12px 30px rgba(24,24,27,0.05);}
+  .l-card .accent{position:absolute;top:0;left:0;right:0;height:3px;}
+  .l-card.amber .accent{background:var(--amber);} .l-card.coral .accent{background:var(--coral);} .l-card.violet .accent{background:var(--violet);}
+  .l-card .ico{width:50px;height:50px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:23px;margin-bottom:22px;}
+  .l-card.amber .ico{background:var(--amber-bg);color:var(--amber);}
+  .l-card.coral .ico{background:var(--coral-bg);color:var(--coral);}
+  .l-card.violet .ico{background:var(--violet-bg);color:var(--violet);}
+  .l-card h3{font-size:clamp(19px,1.5vw,23px);margin:0 0 10px;font-weight:600;}
+  .l-card p{font-size:clamp(14px,1.05vw,16px);color:var(--muted);line-height:1.55;margin:0 0 20px;}
+  .l-card .ex{font-family:var(--mono);font-size:12px;color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:9px;padding:9px 11px;line-height:1.4;}
+
+  .l-steps{display:grid;grid-template-columns:repeat(4,1fr);gap:24px;margin-top:48px;position:relative;}
+  .l-steps::before{content:'';position:absolute;top:24px;left:24px;right:24px;height:2px;background:var(--line);z-index:0;}
+  .l-step{position:relative;z-index:1;}
+  .l-step .badge{width:48px;height:48px;border-radius:13px;display:flex;align-items:center;justify-content:center;
+    font-family:var(--mono);font-size:17px;font-weight:500;background:#F1F1F3;color:var(--ink);margin-bottom:20px;border:3px solid var(--paper);}
+  .l-step h4{font-size:clamp(18px,1.5vw,23px);margin:0 0 9px;font-weight:600;}
+  .l-step p{font-size:clamp(14px,1.05vw,16px);color:var(--muted);line-height:1.55;margin:0;}
+
+  .h-final{text-align:center;}
+  .h-final h2{font-size:42px;letter-spacing:-1.6px;font-weight:600;margin:0 0 26px;}
+  .h-foot{font-family:var(--mono);font-size:12px;color:var(--faint);margin-top:30px;letter-spacing:.3px;}
+
+  /* persistent controls */
+  .h-dots{position:absolute;bottom:26px;left:50%;transform:translateX(-50%);z-index:20;display:flex;gap:9px;}
+  .h-dots button{width:9px;height:9px;border-radius:50%;border:none;background:var(--line-strong);cursor:pointer;padding:0;transition:width .25s,background .25s,border-radius .25s;}
+  .h-dots button.on{background:var(--ink);width:24px;border-radius:5px;}
+  .h-arrow{position:absolute;top:50%;transform:translateY(-50%);z-index:20;width:44px;height:44px;border-radius:50%;
+    border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer;font-size:18px;
+    display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(24,24,27,0.06);transition:opacity .2s,border-color .2s;}
+  .h-arrow:hover{border-color:var(--line-strong);}
+  #hPrev{left:22px;} #hNext{right:22px;}
+  .h-scrollhint{position:absolute;bottom:34px;left:7vw;font-family:var(--mono);font-size:12px;color:var(--faint);
+    letter-spacing:.5px;display:flex;align-items:center;gap:8px;transition:opacity .4s;}
+  .h-scrollhint.gone{opacity:0;}
+  .h-scrollhint .arr{animation:nudge 1.4s ease-in-out infinite;}
+  @keyframes nudge{0%,100%{transform:translateX(0);}50%{transform:translateX(5px);}}
+
+  /* ---------------- APP (chat) ---------------- */
+  #app{height:100%;display:none;flex-direction:column;}
+  #app.show{display:flex;}
+  .header{display:flex;align-items:center;justify-content:space-between;padding:clamp(14px,1.3vw,22px) clamp(20px,3vw,44px);border-bottom:1px solid var(--line);flex-shrink:0;}
+  .header .brand{cursor:pointer;}
+  .header .wordmark{font-size:clamp(20px,1.5vw,28px);}
+  .header .mark{--d:clamp(9px,0.72vw,12px);}
+  .scope{font-family:var(--mono);font-size:clamp(13px,0.95vw,16px);color:var(--muted);letter-spacing:0.3px;}
+  .stage{flex:1;display:flex;min-height:0;}
+  .chatpane{flex:1;display:flex;flex-direction:column;min-height:0;min-width:0;}
+  .stage:not(.active) .chatpane{justify-content:center;align-items:center;padding:24px 24px clamp(56px,7vh,96px);overflow:hidden;}
+  .stage:not(.active){
+    background-image:
+      radial-gradient(72% 56% at 50% 40%, transparent 52%, rgba(24,24,27,0.022) 100%),
+      linear-gradient(rgba(24,24,27,0.028) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(24,24,27,0.028) 1px, transparent 1px);
+    background-size:100% 100%, 32px 32px, 32px 32px;
+  }
+  .hero{width:100%;display:flex;flex-direction:column;align-items:center;}
+  .stage:not(.active) .hero{animation:heroIn .5s ease both;}
+  @keyframes heroIn{from{opacity:0;}to{opacity:1;}}
+  .hero-greeting{display:flex;flex-direction:column;align-items:center;}
+  .bigmark{position:relative;--d:clamp(16px,1.5vw,24px);width:calc(var(--d)*2.5);height:calc(var(--d)*2.12);margin-bottom:clamp(24px,2.2vw,38px);}
+  .bigmark i{position:absolute;width:var(--d);height:var(--d);border-radius:50%;}
+  .bigmark i:nth-child(1){top:0;left:calc(var(--d)*0.75);background:var(--amber);}
+  .bigmark i:nth-child(2){bottom:0;left:0;background:var(--coral);}
+  .bigmark i:nth-child(3){bottom:0;right:0;background:var(--violet);}
+  .hero h1{font-size:clamp(38px,4.2vw,66px);font-weight:600;letter-spacing:-1.6px;margin:0 0 16px;text-align:center;white-space:nowrap;}
+  .hero-sub{font-size:clamp(16px,1.25vw,20px);color:var(--muted);max-width:600px;text-align:center;margin:0 0 clamp(30px,3vw,44px);line-height:1.55;}
+  .thread{display:none;}
+  .stage.active .thread{display:block;flex:1;overflow-y:auto;width:100%;animation:threadIn .45s ease both;}
+  @keyframes threadIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+  .feed-inner{max-width:800px;margin:0 auto;padding:clamp(28px,3vw,44px) 24px;display:flex;flex-direction:column;gap:28px;}
+  .msg-user{align-self:flex-end;max-width:80%;background:var(--ink);color:#fff;padding:13px 18px;border-radius:14px 14px 4px 14px;font-size:clamp(15px,1.05vw,17px);line-height:1.55;white-space:pre-wrap;}
+  .msg-agent{display:flex;flex-direction:column;gap:16px;}
+  .routes{display:flex;gap:7px;flex-wrap:wrap;}
+  .chip{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:12px;padding:5px 10px;border-radius:6px;}
+  .chip .d{width:6px;height:6px;border-radius:50%;}
+  .chip.amber{color:var(--amber);background:var(--amber-bg);} .chip.amber .d{background:var(--amber);}
+  .chip.coral{color:var(--coral);background:var(--coral-bg);} .chip.coral .d{background:var(--coral);}
+  .chip.violet{color:var(--violet);background:var(--violet-bg);} .chip.violet .d{background:var(--violet);}
+  .ablock{border-left:2px solid var(--line-strong);padding-left:18px;}
+  .ablock.amber{border-color:var(--amber);} .ablock.coral{border-color:var(--coral);} .ablock.violet{border-color:var(--violet);}
+  .ablock-head{font-family:var(--mono);font-size:12px;letter-spacing:.8px;text-transform:uppercase;margin-bottom:9px;}
+  .ablock-head.amber{color:var(--amber);} .ablock-head.coral{color:var(--coral);} .ablock-head.violet{color:var(--violet);}
+  .answer{font-size:clamp(16px,1.15vw,18px);line-height:1.72;white-space:pre-wrap;color:var(--ink);}
+  .sources{margin-top:18px;}
+  .sources-label{font-family:var(--mono);font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--faint);margin-bottom:9px;}
+  .src{display:block;text-decoration:none;color:var(--muted);font-size:clamp(13px,0.95vw,15px);line-height:1.5;padding:10px 13px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px;transition:border-color .15s,color .15s;}
+  .src:hover{border-color:var(--line-strong);color:var(--ink);}
+  .src-n{font-family:var(--mono);color:var(--amber);margin-right:5px;}
+  .src-pmid{font-family:var(--mono);font-size:11.5px;color:var(--faint);margin-left:5px;}
+  .thinking .dots{display:flex;gap:5px;padding:4px 0;}
+  .thinking .dots span{width:7px;height:7px;border-radius:50%;background:var(--faint);animation:pulse 1.2s ease-in-out infinite;}
+  .thinking .dots span:nth-child(2){animation-delay:.18s;} .thinking .dots span:nth-child(3){animation-delay:.36s;}
+  @keyframes pulse{0%,80%,100%{opacity:.25;transform:scale(.85);}40%{opacity:1;transform:scale(1);}}
+  .error{font-size:clamp(14px,1vw,16px);color:var(--coral);background:var(--coral-bg);border-radius:10px;padding:13px 15px;}
+  .composer{width:100%;max-width:clamp(680px,62vw,940px);margin:0 auto;}
+  .composer-box{display:flex;align-items:flex-end;gap:10px;background:var(--surface);border:1px solid var(--line-strong);border-radius:18px;padding:clamp(14px,1.05vw,18px) clamp(14px,1.05vw,18px) clamp(14px,1.05vw,18px) clamp(20px,1.5vw,26px);box-shadow:0 4px 24px rgba(24,24,27,0.05);transition:border-color .15s,box-shadow .15s;}
+  .composer-box:focus-within{border-color:#C7B8F5;box-shadow:0 0 0 3px rgba(109,69,232,0.09);}
+  .composer-box textarea{flex:1;border:none;outline:none;background:transparent;resize:none;font-family:inherit;font-size:clamp(16px,1.15vw,19px);line-height:1.5;color:var(--ink);max-height:200px;padding:7px 0;}
+  .composer-box textarea::placeholder{color:var(--faint);}
+  .send{flex-shrink:0;width:clamp(42px,3.2vw,52px);height:clamp(42px,3.2vw,52px);border-radius:12px;border:none;background:var(--ink);color:#fff;font-size:clamp(18px,1.4vw,22px);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:opacity .15s;}
+  .send:hover{opacity:.85;} .send:disabled{opacity:.4;cursor:default;}
+  .hint{margin-top:clamp(12px,1vw,18px);font-size:clamp(13px,0.95vw,15px);color:var(--faint);text-align:center;}
+  .hint .dot{color:var(--line-strong);margin:0 6px;}
+  .dock{display:none;}
+  .stage.active .dock{display:flex;justify-content:center;width:100%;border-top:1px solid var(--line);background:var(--paper);padding:16px 24px;position:relative;z-index:10;}
+  .struct-fallback{display:none;}
+
+  @media (max-width:880px){
+    .h-hero{grid-template-columns:1fr;gap:32px;} .h-hero h1{font-size:36px;}
+    .l-cards{grid-template-columns:1fr;} .l-steps{grid-template-columns:1fr 1fr;}
+    .hero h1{font-size:32px;}
+    .panel{padding:32px 8vw 80px;}
+  }
+  @media (max-width:480px){
+    .hero h1{white-space:normal;font-size:clamp(26px,8vw,32px);}
+  }
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important;} .reveal{opacity:1;transform:none;}}
+</style>
+</head>
+<body>
+
+  <!-- ==================== LANDING ==================== -->
+  <div id="landing" class="grid-bg">
+    <nav class="h-nav">
+      <div class="brand"><span class="mark"><i></i><i></i><i></i></span><span class="wordmark">MedAgent</span></div>
+      <button class="btn btn-primary js-start" id="navCta">Get started</button>
+    </nav>
+
+    <div class="track" id="track">
+
+      <section class="panel" id="p0">
+        <div class="panel-inner h-hero">
+          <div>
+            <span class="l-eyebrow reveal"><span class="pdot"></span>Multi-agent biomedical research assistant</span>
+            <h1 class="reveal d1">One question.<br>The right specialist.<br>A cited answer.</h1>
+            <p class="lead reveal d2">MedAgent reads the research literature, computes molecular and protein properties, and routes every question to the agents that can actually answer it, then shows you the sources.</p>
+            <div class="l-cta reveal d3"><button class="btn btn-primary js-start">Get started</button></div>
+          </div>
+          <div class="mol-card reveal d2">
+            <div class="mol-card-head"><span id="molName">caffeine</span><span>3D</span></div>
+            <div id="heroViewer"></div>
+            <div class="mol-card-cap">drag to rotate</div>
+          </div>
+        </div>
+        <div class="h-scrollhint" id="scrollHint">scroll <span class="arr">&rarr;</span></div>
+      </section>
+
+      <section class="panel" id="p1">
+        <div class="panel-inner">
+          <div class="l-kicker reveal">The problem</div>
+          <h2 class="l-h2 reveal d1">Answering one research question usually means three tabs.</h2>
+          <p class="l-lead2 reveal d2">PubMed for the literature, a cheminformatics tool for the molecule, a protein database for the sequence. MedAgent collapses that into a single prompt, and unlike a plain chatbot, it computes real numbers with RDKit and Biopython and cites real papers, so you can trust what it says.</p>
+          <div class="l-stats reveal d3">
+            <div class="l-stat"><div class="num"><span class="d" style="background:var(--amber)"></span>25,160</div><div class="lab">abstracts indexed</div></div>
+            <div class="l-stat"><div class="num"><span class="d" style="background:var(--coral)"></span>3</div><div class="lab">specialist agents</div></div>
+            <div class="l-stat"><div class="num"><span class="d" style="background:var(--violet)"></span>100%</div><div class="lab">traceable answers</div></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" id="p2">
+        <div class="panel-inner">
+          <div class="l-kicker reveal">Capabilities</div>
+          <h2 class="l-h2 reveal d1">Three specialists, one prompt</h2>
+          <div class="l-cards">
+            <div class="l-card amber reveal d1"><div class="accent"></div><div class="ico">&#9906;</div><h3>Literature</h3><p>Hybrid dense + keyword search over 25,160 biomedical abstracts, with every claim linked to a real PMID.</p><div class="ex">What methods predict protein structure?</div></div>
+            <div class="l-card coral reveal d2"><div class="accent"></div><div class="ico">&#11041;</div><h3>Molecule</h3><p>Computes molecular weight, logP, TPSA and Lipinski drug-likeness with RDKit, and renders the structure in 3D.</p><div class="ex">Is ibuprofen drug-like?</div></div>
+            <div class="l-card violet reveal d3"><div class="accent"></div><div class="ico">&#9741;</div><h3>Protein</h3><p>Fetches sequences from UniProt and computes length, weight, isoelectric point and stability with Biopython.</p><div class="ex">Biochemical properties of insulin?</div></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" id="p3">
+        <div class="panel-inner">
+          <div class="l-kicker reveal">How it works</div>
+          <h2 class="l-h2 reveal d1">Ask, and it routes itself</h2>
+          <div class="l-steps">
+            <div class="l-step reveal d1"><div class="badge">1</div><h4>Ask</h4><p>Type a question in plain English. No need to pick a tool.</p></div>
+            <div class="l-step reveal d1"><div class="badge">2</div><h4>Route</h4><p>A LangGraph orchestrator decides which specialists the question needs.</p></div>
+            <div class="l-step reveal d2"><div class="badge">3</div><h4>Run</h4><p>Agents work in parallel; tools compute the numbers; the model never guesses them.</p></div>
+            <div class="l-step reveal d3"><div class="badge">4</div><h4>Answer</h4><p>A grounded response with citations and an interactive 3D structure.</p></div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+    <button class="h-arrow" id="hPrev" aria-label="Previous">&#8249;</button>
+    <button class="h-arrow" id="hNext" aria-label="Next">&#8250;</button>
+    <div class="h-dots" id="hDots"></div>
+  </div>
+
+  <!-- ==================== APP ==================== -->
+  <div id="app">
+    <header class="header">
+      <div class="brand" id="appHome" title="Back to home"><span class="mark"><i></i><i></i><i></i></span><span class="wordmark">MedAgent</span></div>
+      <span class="scope">Literature · Molecules · Proteins</span>
+    </header>
+    <main class="stage" id="stage">
+      <div class="chatpane" id="chatpane">
+        <div class="thread" id="thread"><div class="feed-inner" id="feed"></div></div>
+        <div class="hero" id="hero">
+          <div class="hero-greeting" id="greeting">
+            <div class="bigmark"><i></i><i></i><i></i></div>
+            <h1>How can I help you today?</h1>
+            <p class="hero-sub">Ask in plain English. Your question is routed to the right specialist (literature, molecules, or proteins) and answered with sources you can check.</p>
+          </div>
+          <div class="composer" id="composer">
+            <div class="composer-box">
+              <textarea id="q" rows="1" placeholder="Ask about the literature, a molecule, or a protein…"></textarea>
+              <button class="send" id="send" aria-label="Send">&#8593;</button>
+            </div>
+            <div class="hint">Grounded in 25,160 indexed abstracts<span class="dot">&bull;</span>computed with RDKit &amp; Biopython</div>
+          </div>
+        </div>
+        <div class="dock" id="dock"></div>
+      </div>
+      <aside class="structpane" id="structpane" hidden></aside>
+    </main>
+  </div>
+
+<script>
+  const reduceMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---------- landing: horizontal scroll engine ---------- */
+  const landing=document.getElementById('landing');
+  const track=document.getElementById('track');
+  const panels=[...document.querySelectorAll('.panel')];
+  const dotsWrap=document.getElementById('hDots');
+  const scrollHint=document.getElementById('scrollHint');
+  let curIndex=0, animating=false, wheelLock=false, wheelTimer=null;
+
+  panels.forEach((p,i)=>{const b=document.createElement('button');b.setAttribute('aria-label','Go to section '+(i+1));b.addEventListener('click',()=>slideTo(i));dotsWrap.appendChild(b);});
+  const navCta=document.getElementById('navCta');
+  function setActive(i){curIndex=i;[...dotsWrap.children].forEach((d,j)=>d.classList.toggle('on',j===i));if(navCta)navCta.classList.toggle('cta-hidden',i===0);}
+  setActive(0);
+
+  function easeInOut(t){return t<0.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;}
+  function slideTo(i){
+    i=Math.max(0,Math.min(panels.length-1,i));
+    setActive(i);
+    if(reduceMotion){track.scrollLeft=i*track.clientWidth;return;}
+    const startX=track.scrollLeft, endX=i*track.clientWidth, dist=endX-startX;
+    if(Math.abs(dist)<1)return;
+    const dur=620, t0=performance.now();
+    animating=true;
+    (function step(now){
+      const p=Math.min(1,(now-t0)/dur);
+      track.scrollLeft=startX+dist*easeInOut(p);
+      if(p<1)requestAnimationFrame(step);else{track.scrollLeft=endX;animating=false;}
+    })(performance.now());
+  }
+
+  function onWheel(e){
+    const delta=Math.abs(e.deltaY)>=Math.abs(e.deltaX)?e.deltaY:e.deltaX;
+    e.preventDefault();e.stopPropagation();
+    if(scrollHint)scrollHint.classList.add('gone');
+    // Keep the lock alive as long as events keep arriving (trackpad inertia tail).
+    // The gesture only "ends" once events stop for ~200ms.
+    if(wheelTimer)clearTimeout(wheelTimer);
+    wheelTimer=setTimeout(()=>{wheelLock=false;},200);
+    if(Math.abs(delta)<6||animating||wheelLock)return;
+    wheelLock=true;
+    slideTo(curIndex+(delta>0?1:-1));
+  }
+  landing.addEventListener('wheel',onWheel,{passive:false,capture:true});
+  document.getElementById('hPrev').addEventListener('click',()=>slideTo(curIndex-1));
+  document.getElementById('hNext').addEventListener('click',()=>slideTo(curIndex+1));
+  document.querySelectorAll('.js-next').forEach(b=>b.addEventListener('click',()=>slideTo(curIndex+1)));
+  window.addEventListener('keydown',e=>{if(getComputedStyle(landing).display==='none')return;if(e.key==='ArrowRight')slideTo(curIndex+1);else if(e.key==='ArrowLeft')slideTo(curIndex-1);});
+
+  if(reduceMotion){panels.forEach(p=>p.classList.add('in'));}
+  else{const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting)e.target.classList.add('in');}),{root:track,threshold:0.5});panels.forEach(p=>io.observe(p));}
+
+  /* ---------- landing: hero molecule (caffeine from PubChem) ---------- */
+  let heroViewer=null, heroLoaded=false;
+  function initHero(){
+    const host=document.getElementById('heroViewer');
+    if(!host||!window.$3Dmol)return;
+    heroViewer=$3Dmol.createViewer(host,{backgroundColor:'white'});
+    try{
+      $3Dmol.download('cid:2519',heroViewer,{},function(){
+        heroViewer.setStyle({},{stick:{radius:0.14},sphere:{scale:0.26}});
+        heroViewer.zoomTo();heroViewer.zoom(0.95);heroViewer.render();
+        if(!reduceMotion)heroViewer.spin('y',0.4);
+        heroLoaded=true;
+      });
+    }catch(e){}
+    setTimeout(()=>{if(!heroLoaded)host.innerHTML='<div class="hero-mol-fallback"><span class="bm"><i></i><i></i><i></i></span></div>';},6000);
+  }
+  window.addEventListener('load',initHero);
+
+  /* ---------- landing <-> app handoff ---------- */
+  const appRoot=document.getElementById('app');
+  function start(){
+    const go=()=>{landing.style.display='none';appRoot.classList.add('show');setTimeout(()=>q.focus(),40);if(heroViewer)heroViewer.spin(false);};
+    if(reduceMotion){go();return;}
+    landing.style.opacity='0';setTimeout(go,350);
+  }
+  function backToLanding(){
+    appRoot.classList.remove('show');
+    landing.style.display='';landing.style.opacity='1';
+    track.scrollLeft=0;setActive(0);
+    if(heroViewer&&!reduceMotion)heroViewer.spin('y',0.4);
+  }
+  document.querySelectorAll('.js-start').forEach(b=>b.addEventListener('click',start));
+  document.getElementById('appHome').addEventListener('click',backToLanding);
+
+  /* ---------- app (chat) ---------- */
+  const stage=document.getElementById('stage');
+  const feed=document.getElementById('feed');
+  const dock=document.getElementById('dock');
+  const composer=document.getElementById('composer');
+  const greeting=document.getElementById('greeting');
+  const q=document.getElementById('q');
+  const sendBtn=document.getElementById('send');
+  let busy=false;
+  const AGENTS={pubmed:{label:'Literature',cls:'amber'},molecular:{label:'Molecule',cls:'coral'},protein:{label:'Protein',cls:'violet'}};
+
+  window.addEventListener('resize',()=>{
+    track.scrollLeft=curIndex*track.clientWidth;
+    if(heroViewer)heroViewer.resize();
+  });
+
+  function autoGrow(){q.style.height='auto';q.style.height=Math.min(q.scrollHeight,200)+'px';}
+  q.addEventListener('input',autoGrow);
+  q.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();}});
+  sendBtn.addEventListener('click',send);
+
+  function activate(){
+    if(stage.classList.contains('active'))return;
+    if(reduceMotion){dock.appendChild(composer);stage.classList.add('active');greeting.remove();return;}
+    const first=composer.getBoundingClientRect();
+    const g=greeting.getBoundingClientRect();
+    Object.assign(greeting.style,{position:'fixed',top:g.top+'px',left:g.left+'px',width:g.width+'px',margin:'0',zIndex:'50'});
+    dock.appendChild(composer);stage.classList.add('active');
+    const last=composer.getBoundingClientRect();
+    const dx=first.left-last.left, dy=first.top-last.top;
+    composer.style.transition='none';composer.style.transform=`translate(${dx}px,${dy}px)`;
+    requestAnimationFrame(()=>{
+      composer.style.transition='transform .55s cubic-bezier(.16,1,.3,1)';composer.style.transform='translate(0,0)';
+      greeting.style.transition='opacity .3s ease, transform .3s ease';greeting.style.opacity='0';greeting.style.transform='translateY(-12px)';
+    });
+    composer.addEventListener('transitionend',()=>{composer.style.transition='';composer.style.transform='';},{once:true});
+    setTimeout(()=>greeting.remove(),380);
+  }
+
+  function scrollDown(){const t=document.getElementById('thread');t.scrollTop=t.scrollHeight;}
+  function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+  function chip(cls,label){return `<span class="chip ${cls}"><span class="d"></span>${label}</span>`;}
+  function addUser(text){const el=document.createElement('div');el.className='msg-user';el.textContent=text;feed.appendChild(el);scrollDown();}
+  function addThinking(){const el=document.createElement('div');el.className='msg-agent thinking';el.innerHTML='<div class="dots"><span></span><span></span><span></span></div>';feed.appendChild(el);scrollDown();return el;}
+  function render(el,data){
+    el.classList.remove('thinking');el.innerHTML='';
+    if(data.routes&&data.routes.length){
+      const r=document.createElement('div');r.className='routes';
+      r.innerHTML=data.routes.map(k=>{const a=AGENTS[k]||{label:k,cls:'amber'};return chip(a.cls,a.label);}).join('');
+      el.appendChild(r);
+    }
+    (data.agents||[]).forEach(b=>{
+      const a=AGENTS[b.agent]||{label:b.agent,cls:'amber'};
+      const sec=document.createElement('div');sec.className='ablock '+a.cls;
+      const h=document.createElement('div');h.className='ablock-head '+a.cls;h.textContent=a.label;
+      const body=document.createElement('div');body.className='answer';body.textContent=b.text;
+      sec.appendChild(h);sec.appendChild(body);
+      const cites=(b.sources||[]).filter(s=>s.pmid);
+      if(cites.length){
+        const sl=document.createElement('div');sl.className='sources';
+        sl.innerHTML='<div class="sources-label">Sources</div>'+cites.map(s=>
+          `<a class="src" href="https://pubmed.ncbi.nlm.nih.gov/${esc(s.pmid)}/" target="_blank" rel="noopener">`+
+          `<span class="src-n">[${esc(String(s.citation))}]</span>${esc(s.title)}`+
+          `<span class="src-pmid">PMID ${esc(s.pmid)}</span></a>`).join('');
+        sec.appendChild(sl);
+      }
+      el.appendChild(sec);
+    });
+    scrollDown();
+  }
+  async function send(){
+    const text=q.value.trim();
+    if(!text||busy)return;
+    busy=true;sendBtn.disabled=true;activate();addUser(text);q.value='';autoGrow();
+    const thinking=addThinking();
+    try{
+      const res=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query:text})});
+      if(!res.ok)throw new Error('HTTP '+res.status);
+      render(thinking,await res.json());
+    }catch(err){
+      thinking.classList.remove('thinking');
+      thinking.innerHTML='<div class="error">Couldn\u2019t reach MedAgent. Make sure the server is running on port 8000, then try again.</div>';
+      scrollDown();
+    }finally{busy=false;sendBtn.disabled=false;q.focus();}
+  }
+</script>
+</body>
+</html>
