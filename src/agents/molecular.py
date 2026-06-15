@@ -73,19 +73,21 @@ def _mol_block_3d(smiles: str) -> str | None:
 def _extract_molecule(query: str) -> str | None:
     """Cheap LLM call to pull the molecule name or SMILES out of the question."""
     prompt = (
-        "Identify the chemical molecule the user asks about. Respond with ONLY "
-        "the molecule's common name (e.g. aspirin), or the exact SMILES if the "
-        "user provided one. Do NOT invent a SMILES. If there is no molecule, "
-        "respond exactly NONE.\n\n"
-        f"User: {query}"
+        "Extract the single chemical the user is asking about and output ONLY its "
+        "name as one or two words (e.g. aspirin), or the exact SMILES the user gave. "
+        "No explanation, no formula, no other words. If there is no chemical, output "
+        "exactly NONE.\n\n"
+        f"User: {query}\n"
+        "Chemical:"
     )
     resp = _client.chat.completions.create(
         model=EXTRACT_MODEL,
         messages=[{"role": "user", "content": prompt}],
         temperature=0,
+        max_tokens=20,          # can't ramble into a full answer
     )
-    answer = resp.choices[0].message.content.strip().strip('."\'')
-    return None if answer.upper() == "NONE" else answer
+    answer = resp.choices[0].message.content.strip().strip('."\'').split("\n")[0].strip()
+    return None if not answer or answer.upper() == "NONE" else answer
 
 
 def _resolve_to_smiles(ref: str):

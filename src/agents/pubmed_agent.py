@@ -4,7 +4,7 @@ from src.generation.synthesize import synthesize
 from src.retrieval.hybrid import hybrid_search
 
 
-def run(query: str, k: int = 5) -> AgentResponse:
+def run(query: str, k: int = 8) -> AgentResponse:
     chunks = hybrid_search(query, k=k)
     answer = synthesize(query, chunks)
     sources = [{"citation": cid, "pmid": pmid, "title": title}
