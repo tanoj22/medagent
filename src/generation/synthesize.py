@@ -22,6 +22,13 @@ they support. Combine when needed, e.g. [1][3].
 Do not guess or fill gaps.
 - Be concise and factual. Write for a researcher."""
 
+STRICT_SUFFIX = """
+
+IMPORTANT: A previous attempt was flagged as insufficiently grounded. Be extra \
+conservative: include ONLY claims you can point to a specific source for, cite every \
+sentence, and if the sources don't clearly answer the question, say so plainly rather \
+than inferring."""
+
 
 @dataclass
 class Answer:
@@ -33,15 +40,16 @@ def _format_sources(chunks: list[Chunk]) -> str:
     return "\n\n".join(f"[{i}] {c.text}" for i, c in enumerate(chunks, start=1))
 
 
-def synthesize(query: str, chunks: list[Chunk]) -> Answer:
+def synthesize(query: str, chunks: list[Chunk], strict: bool = False) -> Answer:
+    system = SYSTEM_PROMPT + (STRICT_SUFFIX if strict else "")
     user_prompt = f"Question: {query}\n\nSources:\n{_format_sources(chunks)}"
     resp = _client.chat.completions.create(
         model=MODEL,
         messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": system},
             {"role": "user", "content": user_prompt},
         ],
-        temperature=0.2,
+        temperature=0.0 if strict else 0.2,
     )
     text = resp.choices[0].message.content
     citations = [(i + 1, c.pmid, c.title) for i, c in enumerate(chunks)]
