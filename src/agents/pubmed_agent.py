@@ -14,14 +14,19 @@ def run(query: str, k: int = 8) -> AgentResponse:
     if not chunks:
         return AgentResponse("pubmed", REFUSAL, ok=False)
 
+    tag = query[:40]
+
     # First attempt
     answer = synthesize(query, chunks)
     verdict = check(query, answer.text, chunks)
+    print(f"  [guard] '{tag}' first attempt: ok={verdict.ok} layer={verdict.layer} {verdict.reason}", flush=True)
 
     # One stricter retry if the guard flagged it
     if not verdict.ok:
+        print(f"  [guard] '{tag}' retrying strict...", flush=True)
         answer = synthesize(query, chunks, strict=True)
         verdict = check(query, answer.text, chunks)
+        print(f"  [guard] '{tag}' after retry: ok={verdict.ok} layer={verdict.layer} {verdict.reason}", flush=True)
 
     # Still bad -> refuse rather than show a possibly-hallucinated answer
     if not verdict.ok:
@@ -38,4 +43,4 @@ if __name__ == "__main__":
     for q in ["What deep learning methods predict protein structure?",
               "What is the airspeed velocity of an unladen swallow?"]:
         r = run(q)
-        print(f"\nQ: {q}\nOK: {r.ok}\n{r.text[:400]}")
+        print(f"\nQ: {q}\nOK: {r.ok}\n{r.text[:400]}", flush=True)
