@@ -1,11 +1,15 @@
 """Molecular small-molecule agent: compute drug-discovery properties via RDKit."""
 import json
 import os
+from urllib.parse import quote
 
+import requests
 from dotenv import load_dotenv
 from groq import Groq
 from rdkit import Chem
 from rdkit.Chem import AllChem, Crippen, Descriptors, Lipinski
+from rdkit import RDLogger
+RDLogger.DisableLog("rdApp.*")
 
 from src.agents.base import AgentResponse
 
@@ -14,7 +18,8 @@ _client = Groq(api_key=os.environ["GROQ_API_KEY"])
 EXTRACT_MODEL = "llama-3.1-8b-instant"      # cheap model for extraction
 PRESENT_MODEL = "llama-3.3-70b-versatile"   # stronger model for phrasing
 
-# Curated name -> SMILES for common molecules. Any valid SMILES also works directly.
+# Fast-path name -> SMILES for small, common molecules with simple, verified structures.
+# Anything not here (larger drugs, etc.) is resolved live via PubChem.
 KNOWN_MOLECULES = {
     "aspirin": "CC(=O)Oc1ccccc1C(=O)O",
     "ibuprofen": "CC(C)Cc1ccc(C(C)C(=O)O)cc1",
@@ -22,14 +27,14 @@ KNOWN_MOLECULES = {
     "acetaminophen": "CC(=O)Nc1ccc(O)cc1",
     "paracetamol": "CC(=O)Nc1ccc(O)cc1",
     "metformin": "CN(C)C(=N)N=C(N)N",
-    "warfarin": "CC(=O)CC(c1ccccc1)c1c(O)c2ccccc2oc1=O",
-    "diazepam": "CN1C(=O)CN=C(c2ccccc2)c2cc(Cl)ccc21",
     "dopamine": "NCCc1ccc(O)c(O)c1",
     "serotonin": "NCCc1c[nH]c2ccc(O)cc12",
     "nicotine": "CN1CCCC1c1cccnc1",
     "glucose": "OCC1OC(O)C(O)C(O)C1O",
     "ethanol": "CCO",
     "benzene": "c1ccccc1",
+    "naproxen": "COc1ccc2cc(C(C)C(=O)O)ccc2c1",
+    "diclofenac": "O=C(O)Cc1ccccc1Nc1c(Cl)cccc1Cl",
 }
 
 
@@ -56,46 +61,72 @@ def compute_properties(smiles: str) -> dict | None:
 
 
 def _mol_block_3d(smiles: str) -> str | None:
-    """Generate 3D atom coordinates and return them as a MOL block (text the viewer can read)."""
+    """Generate 3D atom coordinates and return them as a MOL block."""
     mol = Chem.MolFromSmiles(smiles)
     if mol is None:
         return None
-    mol = Chem.AddHs(mol)                          # add hydrogens for a realistic 3D shape
+    mol = Chem.AddHs(mol)
     if AllChem.EmbedMolecule(mol, randomSeed=42) != 0:
-        return None                                # embedding failed
+        return None
     try:
-        AllChem.MMFFOptimizeMolecule(mol)          # relax the geometry
+        AllChem.MMFFOptimizeMolecule(mol)
     except Exception:
-        pass                                       # optimization is best-effort
+        pass
     return Chem.MolToMolBlock(mol)
 
 
+def _pubchem_smiles(name: str) -> str | None:
+    """Resolve a molecule/drug name to a SMILES string via the PubChem REST API."""
+    try:
+        url = (
+            "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/"
+            f"{quote(name)}/property/CanonicalSMILES/TXT"
+        )
+        r = requests.get(url, timeout=10)
+        if r.status_code == 200:
+            smiles = r.text.strip().split("\n")[0].strip()
+            if smiles and Chem.MolFromSmiles(smiles) is not None:
+                return smiles
+    except Exception:
+        return None
+    return None
+
+
 def _extract_molecule(query: str) -> str | None:
-    """Cheap LLM call to pull the molecule name or SMILES out of the question."""
+    """Pull the molecule NAME (or a user-provided SMILES) out of the question.
+    Never lets the model invent a SMILES from a name."""
     prompt = (
-        "Extract the single chemical the user is asking about and output ONLY its "
-        "name as one or two words (e.g. aspirin), or the exact SMILES the user gave. "
-        "No explanation, no formula, no other words. If there is no chemical, output "
-        "exactly NONE.\n\n"
+        "You extract the chemical the user is asking about.\n"
+        "- If the user NAMES a chemical (e.g. atorvastatin, aspirin), output that NAME "
+        "only, in lowercase.\n"
+        "- If the user pasted a raw SMILES string, output that SMILES exactly.\n"
+        "- NEVER convert a name into a SMILES. NEVER generate, recall, or guess a "
+        "SMILES. Only output a SMILES if it literally appears in the user's message.\n"
+        "- If there is no chemical, output exactly NONE.\n"
+        "Output only the name or the SMILES, nothing else.\n\n"
         f"User: {query}\n"
-        "Chemical:"
+        "Answer:"
     )
     resp = _client.chat.completions.create(
         model=EXTRACT_MODEL,
         messages=[{"role": "user", "content": prompt}],
         temperature=0,
-        max_tokens=20,          # can't ramble into a full answer
+        max_tokens=60,
     )
     answer = resp.choices[0].message.content.strip().strip('."\'').split("\n")[0].strip()
     return None if not answer or answer.upper() == "NONE" else answer
 
 
 def _resolve_to_smiles(ref: str):
+    """Resolve a name or SMILES to (display_name, smiles). Falls back to PubChem."""
     key = ref.lower().strip()
-    if key in KNOWN_MOLECULES:
+    if key in KNOWN_MOLECULES:               # 1) fast-path known names
         return key, KNOWN_MOLECULES[key]
-    if Chem.MolFromSmiles(ref) is not None:
+    if Chem.MolFromSmiles(ref) is not None:  # 2) already a valid SMILES
         return ref, ref
+    smiles = _pubchem_smiles(ref)            # 3) live PubChem name lookup
+    if smiles:
+        return ref, smiles
     return None
 
 
@@ -107,14 +138,19 @@ def run(query: str) -> AgentResponse:
 
     resolved = _resolve_to_smiles(ref)
     if resolved is None:
-        return AgentResponse("molecular", f"'{ref}' isn't in my known set; provide its SMILES.", ok=False)
+        return AgentResponse(
+            "molecular",
+            f"Could not resolve '{ref}' to a structure (not a known name, a valid "
+            "SMILES, or found in PubChem).",
+            ok=False,
+        )
 
     name, smiles = resolved
     props = compute_properties(smiles)
     if props is None:
         return AgentResponse("molecular", f"Could not parse the structure for '{name}'.", ok=False)
 
-    molblock = _mol_block_3d(smiles)               # 3D coordinates for the viewer (may be None)
+    molblock = _mol_block_3d(smiles)
 
     present = _client.chat.completions.create(
         model=PRESENT_MODEL,
@@ -148,7 +184,6 @@ def run(query: str) -> AgentResponse:
 
 
 if __name__ == "__main__":
-    r = run("Is aspirin drug-like?")
-    print(r.text)
-    mb = r.sources[0].get("molblock") if r.sources else None
-    print("\n3D MOL block generated:", "yes" if mb else "no", f"({len(mb)} chars)" if mb else "")
+    for q in ["Is atorvastatin drug-like?", "properties of remdesivir", "logP of gefitinib"]:
+        r = run(q)
+        print(f"\nQ: {q}\n{r.text}")
