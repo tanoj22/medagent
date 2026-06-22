@@ -182,7 +182,7 @@
   .bigmark i:nth-child(1){top:0;left:calc(var(--d)*0.75);background:var(--amber);}
   .bigmark i:nth-child(2){bottom:0;left:0;background:var(--coral);}
   .bigmark i:nth-child(3){bottom:0;right:0;background:var(--violet);}
-  .hero h1{font-size:clamp(32px,3.2vw,48px);font-weight:600;letter-spacing:-1.4px;margin:0 0 16px;text-align:center;white-space:nowrap;}
+  .hero h1{font-size:clamp(30px,2.6vw,42px);font-weight:600;letter-spacing:-1.2px;margin:0 0 16px;text-align:center;}
   .hero-sub{font-size:clamp(16px,1.25vw,20px);color:var(--muted);max-width:600px;text-align:center;margin:0 0 clamp(30px,3vw,44px);line-height:1.55;}
   .thread{display:none;}
   .stage.active .thread{display:block;flex:1;overflow-y:auto;width:100%;animation:threadIn .45s ease both;}
@@ -232,7 +232,7 @@
     .panel{padding:32px 8vw 80px;}
   }
   @media (max-width:480px){
-    .hero h1{white-space:normal;font-size:clamp(26px,8vw,32px);}
+    .hero h1{font-size:clamp(26px,8vw,32px);}
   }
   @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important;} .reveal{opacity:1;transform:none;}}
 </style>
@@ -277,7 +277,7 @@
           <div class="l-stats reveal d3">
             <div class="l-stat"><div class="num"><span class="d" style="background:var(--amber)"></span>25,160</div><div class="lab">abstracts indexed</div></div>
             <div class="l-stat"><div class="num"><span class="d" style="background:var(--coral)"></span>3</div><div class="lab">specialist agents</div></div>
-            <div class="l-stat"><div class="num"><span class="d" style="background:var(--violet)"></span>100%</div><div class="lab">traceable answers</div></div>
+            <div class="l-stat"><div class="num"><span class="d" style="background:var(--violet)"></span>100%</div><div class="lab">tool-grounded</div></div>
           </div>
         </div>
       </section>
@@ -407,7 +407,8 @@
   function initHero(){
     const host=document.getElementById('heroViewer');
     if(!host||!window.$3Dmol)return;
-    heroViewer=$3Dmol.createViewer(host,{backgroundColor:'white',backgroundAlpha:0});
+    heroViewer=$3Dmol.createViewer(host,{backgroundAlpha:0.0});
+    heroViewer.setBackgroundColor(0xffffff, 0.0);
     try{
       $3Dmol.download('cid:2519',heroViewer,{},function(){
         heroViewer.setStyle({},{stick:{radius:0.14},sphere:{scale:0.26}});
