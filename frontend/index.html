@@ -482,19 +482,37 @@
   function chip(cls,label){return `<span class="chip ${cls}"><span class="d"></span>${label}</span>`;}
   function addUser(text){const el=document.createElement('div');el.className='msg-user';el.textContent=text;feed.appendChild(el);scrollDown();}
   function addThinking(){const el=document.createElement('div');el.className='msg-agent thinking';el.innerHTML='<div class="dots"><span></span><span></span><span></span></div>';feed.appendChild(el);scrollDown();return el;}
-  function render(el,data){
+  function _sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+
+  // Type `text` into `node` word-by-word; keeps the view scrolled to the bottom.
+  async function typeWords(node, text){
+    const words = text.split(/(\s+)/);   // keep whitespace tokens so spacing is preserved
+    for(let i=0;i<words.length;i++){
+      node.textContent += words[i];
+      if(words[i].trim()) await _sleep(16);   // ~16ms per word; whitespace is instant
+      if(i % 6 === 0) scrollDown();
+    }
+    scrollDown();
+  }
+
+  async function render(el,data){
     el.classList.remove('thinking');el.innerHTML='';
     if(data.routes&&data.routes.length){
       const r=document.createElement('div');r.className='routes';
       r.innerHTML=data.routes.map(k=>{const a=AGENTS[k]||{label:k,cls:'amber'};return chip(a.cls,a.label);}).join('');
       el.appendChild(r);
+      await _sleep(220);   // let the routing chips land before answers begin
     }
-    (data.agents||[]).forEach(b=>{
+    for(const b of (data.agents||[])){
       const a=AGENTS[b.agent]||{label:b.agent,cls:'amber'};
       const sec=document.createElement('div');sec.className='ablock '+a.cls;
       const h=document.createElement('div');h.className='ablock-head '+a.cls;h.textContent=a.label;
-      const body=document.createElement('div');body.className='answer';body.textContent=b.text;
+      const body=document.createElement('div');body.className='answer';
       sec.appendChild(h);sec.appendChild(body);
+      el.appendChild(sec);
+      scrollDown();
+      await _sleep(120);
+      await typeWords(body, b.text);          // type this agent's answer out
       const cites=(b.sources||[]).filter(s=>s.pmid);
       if(cites.length){
         const sl=document.createElement('div');sl.className='sources';
@@ -503,9 +521,10 @@
           `<span class="src-n">[${esc(String(s.citation))}]</span>${esc(s.title)}`+
           `<span class="src-pmid">PMID ${esc(s.pmid)}</span></a>`).join('');
         sec.appendChild(sl);
+        scrollDown();
       }
-      el.appendChild(sec);
-    });
+      await _sleep(180);   // brief pause before the next agent
+    }
     scrollDown();
   }
   async function send(){
@@ -516,7 +535,7 @@
     try{
       const res=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query:text})});
       if(!res.ok)throw new Error('HTTP '+res.status);
-      render(thinking,await res.json());
+      await render(thinking,await res.json());
     }catch(err){
       thinking.classList.remove('thinking');
       thinking.innerHTML='<div class="error">Couldn\u2019t reach MedAgent. Make sure the server is running on port 8000, then try again.</div>';
