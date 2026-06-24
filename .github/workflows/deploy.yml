@@ -1,0 +1,33 @@
+﻿name: CI and Deploy to HuggingFace Space
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  test-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # full history, needed to push to the Space
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install test dependencies
+        run: pip install pytest groq langgraph chromadb sentence-transformers rank-bm25 rdkit biopython fastapi uvicorn python-dotenv requests huggingface_hub
+
+      - name: Run import smoke tests
+        env:
+          GROQ_API_KEY: dummy-key-for-ci
+        run: python -m pytest tests/ -v
+
+      - name: Push to HuggingFace Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          git push https://Tanoj22:$HF_TOKEN@huggingface.co/spaces/Tanoj22/MedAgent main
