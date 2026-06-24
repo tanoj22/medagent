@@ -11,7 +11,7 @@ jobs:
       - name: Check out the code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0          # full history, needed to push to the Space
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -30,4 +30,4 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          git push https://Tanoj22:$HF_TOKEN@huggingface.co/spaces/Tanoj22/MedAgent main
+          git push https://Tanoj22:$HF_TOKEN@huggingface.co/spaces/Tanoj22/MedAgent main --force
