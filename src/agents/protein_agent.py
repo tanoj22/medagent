@@ -12,7 +12,7 @@ from src.agents.base import AgentResponse
 
 load_dotenv()
 _client = Groq(api_key=os.environ["GROQ_API_KEY"])
-EXTRACT_MODEL = "llama-3.1-8b-instant"
+EXTRACT_MODEL = "openai/gpt-oss-20b"
 PRESENT_MODEL = "llama-3.3-70b-versatile"
 
 _AA = set("ACDEFGHIKLMNPQRSTVWY")

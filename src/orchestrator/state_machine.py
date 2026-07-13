@@ -12,7 +12,7 @@ from src.agents.base import AgentResponse
 
 load_dotenv()
 _client = Groq(api_key=os.environ["GROQ_API_KEY"])
-CLASSIFY_MODEL = "llama-3.1-8b-instant"
+CLASSIFY_MODEL = "openai/gpt-oss-20b"
 
 _VALID = {"pubmed", "molecular", "protein"}
 _NODE = {"pubmed": "run_pubmed", "molecular": "run_molecular", "protein": "run_protein"}

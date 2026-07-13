@@ -15,7 +15,7 @@ from src.agents.base import AgentResponse
 
 load_dotenv()
 _client = Groq(api_key=os.environ["GROQ_API_KEY"])
-EXTRACT_MODEL = "llama-3.1-8b-instant"      # cheap model for extraction
+EXTRACT_MODEL = "openai/gpt-oss-20b"      # cheap model for extraction
 PRESENT_MODEL = "llama-3.3-70b-versatile"   # stronger model for phrasing
 
 # Fast-path name -> SMILES for small, common molecules with simple, verified structures.
