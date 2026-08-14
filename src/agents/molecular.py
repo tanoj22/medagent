@@ -16,7 +16,7 @@ from src.agents.base import AgentResponse
 load_dotenv()
 _client = Groq(api_key=os.environ["GROQ_API_KEY"])
 EXTRACT_MODEL = "openai/gpt-oss-20b"      # cheap model for extraction
-PRESENT_MODEL = "llama-3.3-70b-versatile"   # stronger model for phrasing
+PRESENT_MODEL = "qwen/qwen3.6-27b"   # stronger model for phrasing
 
 # Fast-path name -> SMILES for small, common molecules with simple, verified structures.
 # Anything not here (larger drugs, etc.) is resolved live via PubChem.
@@ -175,6 +175,7 @@ def run(query: str) -> AgentResponse:
             ),
         }],
         temperature=0.2,
+        reasoning_effort="none",
     )
     text = present.choices[0].message.content.strip().lstrip("'\" ").strip()
     return AgentResponse(

@@ -9,7 +9,7 @@ from src.retrieval.dense import Chunk
 
 load_dotenv()
 _client = Groq(api_key=os.environ["GROQ_API_KEY"])
-MODEL = "llama-3.3-70b-versatile"
+MODEL = "openai/gpt-oss-120b"
 
 SYSTEM_PROMPT = """You are a biomedical research assistant. Answer the user's \
 question using ONLY the numbered sources provided.
@@ -50,6 +50,8 @@ def synthesize(query: str, chunks: list[Chunk], strict: bool = False) -> Answer:
             {"role": "user", "content": user_prompt},
         ],
         temperature=0.0 if strict else 0.2,
+        reasoning_effort="low",
+        include_reasoning=False,
     )
     text = resp.choices[0].message.content
     citations = [(i + 1, c.pmid, c.title) for i, c in enumerate(chunks)]

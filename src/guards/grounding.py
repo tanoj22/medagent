@@ -2,7 +2,7 @@
 
 Layer 1  heuristic citation check  -- cheap, no LLM
 Layer 2  token-overlap grounding   -- cheap, no LLM
-Layer 3  LLM-as-judge faithfulness -- one 70B call
+Layer 3  LLM-as-judge faithfulness -- one GPT-OSS 120B call
 """
 import os
 import re
@@ -15,7 +15,7 @@ from src.retrieval.dense import Chunk
 
 load_dotenv()
 _client = Groq(api_key=os.environ["GROQ_API_KEY"])
-JUDGE_MODEL = "llama-3.3-70b-versatile"   # stricter judging
+JUDGE_MODEL = "openai/gpt-oss-120b"   # stricter judging
 
 # Tunables
 MIN_OVERLAP = 0.18          # fraction of answer content-words that must appear in sources
@@ -83,7 +83,9 @@ def _layer3_judge(query: str, answer: str, chunks: list[Chunk]) -> GuardResult:
         model=JUDGE_MODEL,
         messages=[{"role": "user", "content": prompt}],
         temperature=0,
-        max_tokens=60,
+        max_tokens=256,
+        reasoning_effort="low",
+        include_reasoning=False,
     )
     verdict = resp.choices[0].message.content.strip()
     if verdict.upper().startswith("SUPPORTED"):

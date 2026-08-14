@@ -51,7 +51,7 @@ This is a portfolio project, not a clinical tool.
 
 ## Tech stack
 
-Python, LangGraph, Groq (Llama 3.3 70B and 3.1 8B), ChromaDB, sentence-transformers (all-MiniLM-L6-v2), rank-bm25, RDKit, Biopython, FastAPI, Docker. Deployed on HuggingFace Spaces.
+Python, LangGraph, Groq (GPT-OSS 120B, Qwen3.6 27B, and GPT-OSS 20B), ChromaDB, sentence-transformers (all-MiniLM-L6-v2), rank-bm25, RDKit, Biopython, FastAPI, Docker. Deployed on HuggingFace Spaces.
 
 ## Running locally
 

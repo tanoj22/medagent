@@ -13,7 +13,7 @@ from src.agents.base import AgentResponse
 load_dotenv()
 _client = Groq(api_key=os.environ["GROQ_API_KEY"])
 EXTRACT_MODEL = "openai/gpt-oss-20b"
-PRESENT_MODEL = "llama-3.3-70b-versatile"
+PRESENT_MODEL = "qwen/qwen3.6-27b"
 
 _AA = set("ACDEFGHIKLMNPQRSTVWY")
 
@@ -142,6 +142,7 @@ def run(query: str) -> AgentResponse:
             f"Protein: {name}\nProperties: {json.dumps(props)}"
         )}],
         temperature=0.2,
+        reasoning_effort="none",
     )
     return AgentResponse("protein", present.choices[0].message.content, ok=True,
                          sources=[{"protein": name, "properties": props}])
