@@ -6,7 +6,7 @@ Doubles as interview prep.
 
 ## Stack
 
-- **LLM: Groq (GPT-OSS 120B + Qwen3.6 27B + GPT-OSS 20B)**, not OpenAI/Anthropic. Free tier, fast inference, keeps the whole project zero-cost. GPT-OSS 120B for synthesis and the LLM judge; Qwen3.6 27B for molecule/protein phrasing; GPT-OSS 20B for cheap steps (classification, name extraction). Replaced Llama 3.3 70B before Groq's 2026-08-16 shutdown (`openai/gpt-oss-120b` or `qwen/qwen3.6-27b`).
+- **LLM: Groq (GPT-OSS 120B + Qwen3.8 27B + GPT-OSS 20B)**, not OpenAI/Anthropic. Free tier, fast inference, keeps the whole project zero-cost. GPT-OSS 120B for synthesis and the LLM judge; Qwen3.8 27B for molecule/protein phrasing; GPT-OSS 20B for cheap steps (classification, name extraction). Replaced Llama 3.3 70B before Groq's 2026-08-16 shutdown (`openai/gpt-oss-120b` or `qwen/qwen3.8-27b`). Groq rotates model IDs over time without warning (e.g. `qwen3.6-27b` -> `qwen3.8-27b` silently 404'd in production) -- check `client.models.list()` if a 500 traces back to a `groq.NotFoundError`.
 - **Embeddings: sentence-transformers all-MiniLM-L6-v2, local**, not a hosted embedding API. Free, runs on CPU, no per-call cost; good enough for abstract retrieval.
 - **Vector DB: ChromaDB (local persistent)**, not Pinecone. Free, no hosted dependency, ships inside the Docker image as a single deployment unit.
 - **Hybrid retrieval: dense + BM25 fused with RRF**, not dense-only. BM25 catches exact-term matches (gene/drug names) that dense embeddings blur.
